@@ -7,7 +7,7 @@ import { LuNotepadText } from "react-icons/lu";
 import { FcGoogle } from "react-icons/fc";
 import { createUserWithEmailAndPassword,signInWithEmailAndPassword,updateProfile } from 'firebase/auth';
 import { auth } from '../firebaseConfig';
-import { setUserlogin } from '../redux/authSlice';
+import { setUserLogin } from '../redux/authSlice';
 import { toast } from 'react-toastify';
 
 function Signup() {
@@ -29,12 +29,12 @@ function Signup() {
         // Update user profile with username
         await updateProfile(users, { displayName: username });
 
-        dispatch(setUserlogin(users));
+        dispatch(setUserLogin(users));
         toast.success("Signup Successful");
         navigate("/home");
       } else {
         const result = await signInWithEmailAndPassword(auth, email, password);
-        dispatch(setUserlogin(result.user));
+        dispatch(setUserLogin(result.user));
         toast.success("Login Successful");
         navigate("/home");
       }
@@ -112,7 +112,7 @@ function Signup() {
       <div className="font-semibold text-xl mx-auto">or</div>
       <button
         className="bg-black rounded-2xl text-white px-6 py-1 mt-4 cursor-pointer flex items-center gap-2 mx-auto"
-        onClick={() => handleLogin(dispatch, navigate)}
+        onClick={() => handleLogin({dispatch, navigate})}
       >
         <FcGoogle size={20} />
         <span className="font-semibold text-md py-0.5">Continue with Google</span>

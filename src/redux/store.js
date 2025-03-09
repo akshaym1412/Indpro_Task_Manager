@@ -1,5 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
-import authReducer from "./authSlice"; // ✅ Import authSlice
+import authReducer from "./authSlice";
 import storage from "redux-persist/lib/storage";
 import { persistReducer, persistStore } from "redux-persist";
 import { combineReducers } from "redux";
@@ -8,11 +8,11 @@ const persistConfig = {
   key: "root",
   version: 1,
   storage,
-  whitelist: ["auth"], // ✅ Persist only auth state
+  whitelist: ["auth"],
 };
 
 const reducer = combineReducers({
-  auth: authReducer, // ✅ Add auth reducer
+  auth: authReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, reducer);

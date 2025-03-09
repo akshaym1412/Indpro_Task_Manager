@@ -1,25 +1,34 @@
-import { auth,provider,signInWithPopup,signOut } from "../firebaseConfig";
-import { setUserlogin,logoutUser } from "../redux/authSlice";
+import { auth, provider, signInWithPopup, signOut } from "../firebaseConfig";
+import { setUserLogin, logoutUser } from "../redux/authSlice";
 
-
-// Function to handle login
-export const handleLogin = async (dispatch,navigate) => {
+export const handleLogin = async ({ dispatch, navigate }) => {
   try {
     const result = await signInWithPopup(
       auth,
       provider.setCustomParameters({ prompt: "select_account" })
     );
-    dispatch(setUserlogin(result.user)); // Store in Redux
+
+    if (!result.user?.uid) {
+      throw new Error("User data is missing UID");
+    }
+
+    const userData = {
+      uid: result.user.uid,
+      email: result.user.email || "",
+      displayName: result.user.displayName || "",
+      photoURL: result.user.photoURL || "",
+    };
+
+    dispatch(setUserLogin(userData));
     navigate("/home");
 
-    console.log("User Logged In:", result.user);
+    console.log("User Logged In:", userData);
   } catch (error) {
     console.error("Login Error:", error);
   }
 };
 
-// Function to handle logout
-export const handleLogout = async (dispatch,navigate) => {
+export const handleLogout = async (dispatch, navigate) => {
   try {
     await signOut(auth);
     dispatch(logoutUser());

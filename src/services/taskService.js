@@ -1,90 +1,186 @@
 import { db } from "../firebaseConfig";
-import { collection, addDoc, getDocs, deleteDoc,updateDoc, doc , query, where  } from "firebase/firestore";
+import { format } from "date-fns";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  updateDoc,
+  doc,
+  query,
+  where,
+  arrayUnion,
+} from "firebase/firestore";
+import axios from "axios";
 
-// Add Task
 export const addTask = async (task) => {
-    console.log("Inside addTask function, received task:", task); // ✅ Check function call
-  
-    try {
-      const docRef = await addDoc(collection(db, "tasks"), task);
-      console.log("Task added with ID:", docRef.id); // ✅ Check if Firestore stores it
-    } catch (error) {
-      console.error("Error adding task:", error); // ✅ Catch Firestore errors
-    }
-  };
+  try {
+    const newTask = {
+      ...task,
+      files: task.files || "",
+      activities: [
+        {
+          action: "You created this task",
+          timestamp: format(new Date(), "MMM dd 'at' h:mm a"),
+          user: task.user,
+        },
+      ],
+    };
 
-// Fetch Tasks
+    await addDoc(collection(db, "tasks"), newTask);
+  } catch (error) {
+    console.error("Error adding task:", error);
+  }
+};
+
 export const getTasks = async (user) => {
-    try {
-      if (!user || typeof user !== "string") {
-        console.error("🚨 Invalid user value:", user);
-        return [];
-      }
-  
-      console.log("🔍 Fetching tasks for user:", user);
-  
-      const q = query(collection(db, "tasks"), where("user", "==", user));
-      console.log("🔎 Firestore Query Object:", q);
-  
-      const snapshot = await getDocs(q);
-      console.log("📜 Firestore Snapshot:", snapshot);
-  
-      if (snapshot.empty) {
-        console.warn("⚠️ No tasks found for this user!");
-        return [];
-      }
-  
-      return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    } catch (error) {
-      console.error("❌ Error fetching tasks:", error);
+  try {
+    if (!user) {
       return [];
     }
-  };
 
-export const updateTask = async (taskId, updatedData) => {
-    try {
-      const taskRef = doc(db, "tasks", taskId); // Reference the document
-      await updateDoc(taskRef, updatedData);
-      console.log("Task updated successfully!");
-    } catch (error) {
-      console.error("Error updating task:", error);
+    const q = query(collection(db, "tasks"), where("user", "==", user));
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      return [];
     }
-  };
 
- export const deleteSelectedTasks = async (selectedTasks,fetchTasks,setSelectedTasks) => {
-    if (selectedTasks.length === 0) return;
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error("Error fetching tasks:", error);
+    return [];
+  }
+};
 
-    try {
-      await Promise.all(selectedTasks.map(taskId => deleteDoc(doc(db, "tasks", taskId))));
-      setSelectedTasks([]); // Clear selection
-      fetchTasks();
-      console.log("✅ Selected tasks deleted successfully!");
-    } catch (error) {
-      console.error("❌ Error deleting tasks:", error);
+export const updateTask = async (taskId, newTask, oldTask) => {
+  try {
+    const taskRef = doc(db, "tasks", taskId);
+    const activities = [];
+
+    const formattedTime = format(new Date(), "MMM dd 'at' h:mm a");
+
+    if (newTask.title && newTask.title !== oldTask.title) {
+      activities.push({
+        action: `Changed title from "${oldTask.title}" to "${newTask.title}"`,
+        timestamp: formattedTime,
+        user: oldTask.user,
+      });
     }
-  };
-
-export const updateSelectedTasksStatus = async (selectedTasks, newStatus, fetchTasks, setSelectedTasks) => {
-    if (selectedTasks.length === 0 || !newStatus) return;
-  
-    try {
-        console.log("Entered");
-      await Promise.all(
-        selectedTasks.map(taskId => 
-          updateDoc(doc(db, "tasks", taskId), { status: newStatus })
-        )
-      );
-  
-      setSelectedTasks([]); // Clear selection after update
-      fetchTasks(); // Refresh task list
-      console.log(`✅ Selected tasks updated to "${newStatus}" successfully!`);
-    } catch (error) {
-      console.error("❌ Error updating task status:", error);
+    if (newTask.description && newTask.description !== oldTask.description) {
+      activities.push({
+        action: "Updated task description",
+        timestamp: formattedTime,
+        user: oldTask.user,
+      });
     }
-  };
+    if (newTask.category && newTask.category !== oldTask.category) {
+      activities.push({
+        action: `You Changed category from "${oldTask.category}" to "${newTask.category}"`,
+        timestamp: formattedTime,
+        user: oldTask.user,
+      });
+    }
+    if (newTask.dueDate && newTask.dueDate !== oldTask.dueDate) {
+      activities.push({
+        action: `You Changed due date from "${oldTask.dueDate}" to "${newTask.dueDate}"`,
+        timestamp: formattedTime,
+        user: oldTask.user,
+      });
+    }
+    if (newTask.status && newTask.status !== oldTask.status) {
+      activities.push({
+        action: `You Changed status from "${oldTask.status}" to "${newTask.status}"`,
+        timestamp: formattedTime,
+        user: oldTask.user,
+      });
+    }
+    if ((newTask.files?.length || 0) > (oldTask.files?.length || 0)) {
+      activities.push({
+        action: "You Uploaded a file",
+        timestamp: formattedTime,
+        user: oldTask.user,
+      });
+    }
+    if ((newTask.files?.length || 0) < (oldTask.files?.length || 0)) {
+      activities.push({
+        action: "You removed a file",
+        timestamp: formattedTime,
+        user: oldTask.user,
+      });
+    }
 
-  
-// Delete Task
+    await updateDoc(taskRef, {
+      ...newTask,
+      activities: arrayUnion(...activities),
+    });
+  } catch (error) {
+    console.error("Error updating task:", error);
+  }
+};
+
+export const deleteSelectedTasks = async (
+  selectedTasks,
+  fetchTasks,
+  setSelectedTasks
+) => {
+  if (selectedTasks.length === 0) return;
+
+  try {
+    await Promise.all(
+      selectedTasks.map((taskId) => deleteDoc(doc(db, "tasks", taskId)))
+    );
+    setSelectedTasks([]);
+    fetchTasks();
+  } catch (error) {
+    console.error("Error deleting tasks:", error);
+  }
+};
+
+export const updateSelectedTasksStatus = async (
+  selectedTasks,
+  newStatus,
+  fetchTasks,
+  setSelectedTasks
+) => {
+  if (selectedTasks.length === 0 || !newStatus) return;
+
+  try {
+    await Promise.all(
+      selectedTasks.map((taskId) =>
+        updateDoc(doc(db, "tasks", taskId), { status: newStatus })
+      )
+    );
+
+    setSelectedTasks([]);
+    fetchTasks();
+  } catch (error) {
+    console.error("Error updating task status:", error);
+  }
+};
+
 export const deleteTask = async (taskId) => {
-  await deleteDoc(doc(db, "tasks", taskId));
+  try {
+    await deleteDoc(doc(db, "tasks", taskId));
+  } catch (error) {
+    console.error("Error deleting task:", error);
+  }
+};
+
+export const uploadImageToCloudinary = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", "task_manager");
+  formData.append("cloud_name", "dgfnsxnv3");
+
+  try {
+    const response = await axios.post(
+      "https://api.cloudinary.com/v1_1/dgfnsxnv3/image/upload",
+      formData
+    );
+    return response.data.secure_url;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    return null;
+  }
 };

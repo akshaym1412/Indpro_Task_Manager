@@ -14,10 +14,10 @@ function Signup() {
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const [username, setUsername] = useState(""); // Store username
+  const [username, setUsername] = useState(""); 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignup, setIsSignup] = useState(false); // Toggle for login/signup
+  const [isSignup, setIsSignup] = useState(false); 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -120,8 +120,7 @@ function Signup() {
     </div>
   </div>
 
-  {/* Right Section (SVG Illustration) */}
-  <div className="flex justify-center absolute lg:relative items-center w-full md:w-[65%] mt-10 md:mt-0">
+  <div className="lg:flex justify-center hidden lg:relative items-center w-full md:w-[65%] mt-10 md:mt-0">
     <svg
       width="300"
       height="300"
